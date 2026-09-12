@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <iostream>
 #include <chrono>
 #include <mutex>
@@ -7,9 +8,9 @@
 std::mutex print_mutex;
 
 enum StateMachine {
-    NO_RUN;
-    FIRST_RUN;
-    SECOND_RUN;
+    NO_RUN,
+    FIRST_RUN,
+    SECOND_RUN,
 };
 
 
@@ -47,18 +48,20 @@ int main() {
         state = StateMachine::FIRST_RUN;
     }
 
-    while (pool.busy()) {
 
-    }    
+    while (pool.busy()) {
+        printf("First wait\n");
+        //wait
+    }
 
     pool.QueueJob([&my_data, &pool_2]() {
         wrapper(my_data, pool_2);
     });
 
-    while (pool.busy()) {
-
+    while (pool.busy() || pool_2.busy()) {
+        printf("Second wait\n");
     }
-    
+
     pool.Stop();
     pool_2.Stop();
 
