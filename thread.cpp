@@ -10,6 +10,13 @@ void ThreadPool::Start() {
     }
 }
 
+void ThreadPool::Start(int num_of_threads) {
+    const uint32_t num_threads = num_of_threads;
+    for (uint32_t ii = 0; ii < num_threads; ++ii) {
+        threads.emplace_back(std::thread(&ThreadPool::ThreadLoop,this));
+    }
+}
+
 void ThreadPool::ThreadLoop() {
     while (true) {
         std::function<void()> job;
@@ -24,7 +31,9 @@ void ThreadPool::ThreadLoop() {
             job = jobs.front();
             jobs.pop();
         }
+        active_thread++;
         job();
+        active_thread--;
     }
 }
 
@@ -42,7 +51,7 @@ bool ThreadPool::busy() {
         std::unique_lock<std::mutex> lock(queue_mutex);
         poolbusy = !jobs.empty();
     }
-    return poolbusy;
+    return poolbusy && active_thread == 0;
 }
 
 void ThreadPool::Stop() {

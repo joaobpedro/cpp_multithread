@@ -3,49 +3,74 @@
 #include <mutex>
 #include "thread.h"
 
+
 std::mutex print_mutex;
+
+enum StateMachine {
+    NO_RUN;
+    FIRST_RUN;
+    SECOND_RUN;
+};
+
 
 void modify_element(int& element, int index) {
     // Simulate some heavy work
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    
     element += 10;
-    
-    // Lock before printing so threads don't overwrite each other's text
-    std::lock_guard<std::mutex> lock(print_mutex);
-    std::cout << "Job for index " << index << " finished." << std::endl;
 }
 
-int main() {
-    std::vector<int> my_data = {1, 2, 3, 4, 5, 6, 7, 8};
-    
-    ThreadPool pool;
-    pool.Start(); // Create the worker threads
-
-    // 1. Queue up the jobs
+void wrapper(std::vector<int> &my_data, ThreadPool &pool) {
     for (size_t i = 0; i < my_data.size(); ++i) {
-        // We capture `i` by value, and a reference to the specific element
         pool.QueueJob([&my_data, i]() {
             modify_element(my_data[i], i);
         });
     }
+}
 
-    // 2. Wait for jobs to finish
-    // Since this implementation doesn't return futures, a common way 
-    // to wait for the queue to empty is to poll the busy() method.
-    while (pool.busy()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+int main() {
+
+    StateMachine state = StateMachine::NO_RUN;
+    std::vector<int> my_data = {1, 2, 3, 4, 5, 6, 7, 8};
+    
+    ThreadPool pool;
+    pool.Start(2); 
+
+    ThreadPool pool_2;
+    pool_2.Start();
+
+    // need to wait for the threads to finish
+    if (state == StateMachine::NO_RUN) {
+        for (size_t i = 0; i < my_data.size(); ++i) {
+            pool.QueueJob([&my_data, i]() {
+                modify_element(my_data[i], i);
+            });
+        }
+        state = StateMachine::FIRST_RUN;
     }
 
-    // 3. Stop the pool
-    pool.Stop();
+    while (pool.busy()) {
 
-    // 4. Verify results
+    }    
+
+    pool.QueueJob([&my_data, &pool_2]() {
+        wrapper(my_data, pool_2);
+    });
+
+    while (pool.busy()) {
+
+    }
+    
+    pool.Stop();
+    pool_2.Stop();
+
     std::cout << "Final data: ";
     for (int val : my_data) {
         std::cout << val << " ";
     }
+    
     std::cout << std::endl;
 
     return 0;
 }
+
+
+#include "thread.cpp"
